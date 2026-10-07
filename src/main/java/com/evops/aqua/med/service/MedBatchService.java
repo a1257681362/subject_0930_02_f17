@@ -57,19 +57,20 @@ public class MedBatchService {
     }
 
     /**
-     * 扣减库存：仅在领用审核通过的事务内调用；可用量不足抛异常使整体回滚。
+     * 扣减库存：仅在领用审核通过的事务内调用。
+     * 条件更新单 SQL 兜底并发：跨池并发审核同一批号时只有一个事务扣减成功，
+     * 另一事务受影响 0 行并抛异常随整体回滚，绝不超卖。
      */
     public void deduct(MedBatch batch, BigDecimal quantity, String operator, String requestId, String detail) {
         MedBatch before = copyOf(batch);
-        if (batch.availableQuantity().compareTo(quantity) < 0) {
-            throw new IllegalArgumentException("药品批号" + batch.getBatchNo() + "可用库存不足：可用"
-                    + batch.availableQuantity() + "，需扣减" + quantity);
+        int affected = batchMapper.deductIfAvailable(batch.getId(), quantity);
+        if (affected == 0) {
+            MedBatch fresh = getOrThrow(batch.getId());
+            throw new IllegalArgumentException("药品批号" + fresh.getBatchNo() + "可用库存不足：可用"
+                    + fresh.availableQuantity() + "，需扣减" + quantity + "（并发扣减已被拦截）");
         }
-        batch.setQuantityConsumed(batch.getQuantityConsumed().add(quantity));
-        if (batch.availableQuantity().compareTo(BigDecimal.ZERO) == 0) {
-            batch.setStatus(MedBatch.STATUS_EXHAUSTED);
-        }
-        batchMapper.updateById(batch);
+        MedBatch after = getOrThrow(batch.getId());
+        BeanUtils.copyProperties(after, batch);
         evidenceService.record(MedChangeEvidence.ENTITY_BATCH, batch.getId(),
                 MedChangeEvidence.ACTION_STOCK_DEDUCT, requestId, operator, before, batch, detail);
     }

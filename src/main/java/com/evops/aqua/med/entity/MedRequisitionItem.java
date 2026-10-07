@@ -20,6 +20,13 @@ public class MedRequisitionItem extends BaseEntity {
     private BigDecimal estimatedQty;
     private Integer withdrawalDays;
     private LocalDate withdrawalEndDate;
+    /**
+     * 批次关联版本：与领用单 revNo 同步，首版为 1，撤回重提后新单明细为 2、3……
+     * 历史明细永不回改，逐版可辨。
+     */
+    private Integer linkVersion;
+    /** 建单/重提时冻结的批号文本快照，即使批号库存档案后续调整也能还原当时关联。 */
+    private String batchNoSnapshot;
 
     public Long getRequisitionId() { return requisitionId; }
     public void setRequisitionId(Long requisitionId) { this.requisitionId = requisitionId; }
@@ -35,4 +42,8 @@ public class MedRequisitionItem extends BaseEntity {
     public void setWithdrawalDays(Integer withdrawalDays) { this.withdrawalDays = withdrawalDays; }
     public LocalDate getWithdrawalEndDate() { return withdrawalEndDate; }
     public void setWithdrawalEndDate(LocalDate withdrawalEndDate) { this.withdrawalEndDate = withdrawalEndDate; }
+    public Integer getLinkVersion() { return linkVersion; }
+    public void setLinkVersion(Integer linkVersion) { this.linkVersion = linkVersion; }
+    public String getBatchNoSnapshot() { return batchNoSnapshot; }
+    public void setBatchNoSnapshot(String batchNoSnapshot) { this.batchNoSnapshot = batchNoSnapshot; }
 }

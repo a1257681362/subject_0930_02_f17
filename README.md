@@ -97,13 +97,14 @@
 - 药品档案（`POST /api/aqua/med/drugs`）：登记标准剂量（每 m³ 水体用量）与休药期天数；requestId 幂等，重复登记返回首条。
 - 批号入库（`POST /api/aqua/med/batches`）：一批一行两量账（可用量 = 入库 − 已消耗）；**批号不可删除**，用尽置 EXHAUSTED；requestId 幂等。
 - 领用单（`POST /api/aqua/med/requisitions`）：关联池塘、病情观察单（须同池）与药品批号；**按剂量 × 水体（面积 × 水深）自动估算使用量**，剂量可按行覆盖档案默认值，剂量与休药期建单时冻结快照；requestId 幂等。
-- 提交（`POST /{id}/submit`）：草稿转待审核，逐明细计算休药结束日（用药日 + 休药期天数），并锁定池塘预计出池日——**不同药品叠加时取最晚结束日**；休药期未结束台账出池一律拒绝，并提示最早可出池日。
-- 审核（`POST /{id}/approve`）：**审批人与审批意见缺一不可，缺任一领用单停留待处理（PENDING）**；**库存扣减与领用审核同一事务**——任一明细批号可用量不足则整体回滚、单停留待审核、失败原因独立事务留证；重复审批幂等不多扣。
+- 提交（`POST /{id}/submit`）：草稿转待审核，**逐明细只按本行冻结的休药天数与本行批号**计算休药结束日（用药日 + 休药期天数），并锁定池塘预计出池日——**不同药品叠加时取最晚结束日**；休药期未结束台账出池一律拒绝，并提示最早可出池日。同一池塘的提交/审核/驳回/撤回/重提经池塘互斥键（`t_med_pond_mutex` 行锁）串行重算，跨池领用同一药品互不串用、互不覆盖。
+- 审核（`POST /{id}/approve`）：**审批人与审批意见缺一不可，缺任一领用单停留待处理（PENDING）**；**库存扣减与领用审核同一事务**——批号扣减为条件更新（`quantity_in - quantity_consumed >= 需求量`），任一明细不足或跨池并发竞争失败则整体回滚、单停留待审核、失败原因独立事务留证；重复审批幂等不多扣。
 - 驳回与撤回：`POST /{id}/reject` 驳回须登记审批人与意见；`POST /{id}/withdraw` **只能撤销未审核单**（草稿/待审核），已审核单一律拒绝；驳回/撤回后释放该单对池塘的休药锁定。
+- 撤回重提（`POST /{id}/resubmit`，aqua-17）：**仅已撤回单可重提，另立新版本单**——编号在首版编号后追加 `-R2/-R3…`，`rev_no` 递增、`origin_req_no` 指向版本链首版、`resubmit_of_id` 指向上一版，重提时间 `resubmit_time` 单独落库（与撤回/审核时间可辨）；明细 `link_version` 随版本递增并冻结 `batch_no_snapshot`，缺省沿用上一版明细也可重指定；**旧撤回单、旧明细快照与历史审核结论原样保留，绝不静默重算**；同池并发重提由互斥键裁决，版本链不分叉；requestId 幂等。
 - 角色视图（`GET /api/aqua/med/requisitions/{id}?role=`）：**兽医（VET）看处方明细**（病情、剂量、休药期），**仓管（KEEPER）只看库存字段**（批号、数量、效期），看不到处方信息。
-- 全程留证：药品登记、批号入库、领用创建/提交/审核/驳回/撤回、库存扣减、休药锁定/释放均写 `t_med_change_evidence`（含操作者、前后快照与幂等请求号），可经 `GET /api/aqua/med/evidence` 按对象或 requestId 追溯；池塘休药锁定经 `GET /api/aqua/med/withdrawal-locks?pondId=` 查询。
+- 全程留证：药品登记、批号入库、领用创建/提交/审核/驳回/撤回/**重提**、库存扣减、休药锁定/释放均写 `t_med_change_evidence`（含操作者、前后快照与幂等请求号），可经 `GET /api/aqua/med/evidence` 按对象或 requestId 追溯；池塘休药锁定经 `GET /api/aqua/med/withdrawal-locks?pondId=` 查询。
 
-验收：`mvn test -Dtest=MedRequisitionAcceptanceTest`，15 个检查点逐段输出报告，失败即停并给出停点。
+验收：`mvn test -Dtest=MedRequisitionAcceptanceTest`，15 个检查点逐段输出报告，失败即停并给出停点；`mvn test -Dtest=MedWithdrawalContextIsolationTest` 覆盖跨池真实双线程并发提交（休药期不串批、多药取最晚）、同池并发提交互斥串行、跨池并发审核同一批号不超卖且失败留证、撤回重提编号/批次关联版本/时间逐版可辨且历史不静默重算。
 
 ## 捕捞预约与规格分仓（aqua-8）
 

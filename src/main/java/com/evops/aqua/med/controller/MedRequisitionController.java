@@ -2,6 +2,7 @@ package com.evops.aqua.med.controller;
 
 import com.evops.aqua.med.dto.RequisitionActionRequest;
 import com.evops.aqua.med.dto.RequisitionCreateRequest;
+import com.evops.aqua.med.dto.RequisitionResubmitRequest;
 import com.evops.aqua.med.dto.RequisitionReviewRequest;
 import com.evops.aqua.med.entity.MedRequisition;
 import com.evops.aqua.med.service.MedRequisitionService;
@@ -71,5 +72,12 @@ public class MedRequisitionController {
     public ApiResponse<MedRequisition> withdraw(@PathVariable Long id,
                                                 @Validated @RequestBody RequisitionActionRequest request) {
         return ApiResponse.ok(requisitionService.withdraw(id, request));
+    }
+
+    /** 撤回后重提：另立新版本领用单，旧撤回单与历史审核结论原样保留。 */
+    @PostMapping("/{id}/resubmit")
+    public ApiResponse<MedRequisition> resubmit(@PathVariable Long id,
+                                                @Validated @RequestBody RequisitionResubmitRequest request) {
+        return ApiResponse.ok(requisitionService.resubmit(id, request));
     }
 }

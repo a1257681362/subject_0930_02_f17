@@ -3170,3 +3170,27 @@ CREATE INDEX IF NOT EXISTS idx_report_evidence_request ON t_report_change_eviden
 MERGE INTO t_evops_schema_version (version_no, description)
 KEY (version_no)
 VALUES ('aqua-16', '水产监管月报：投苗量/用药量/死亡率/出池量/检验结论按口径版本汇总，Quartz 生成固化快照、缺采样标待补不填零，重新生成只产生新版本，导出按海区权限过滤，失败任务保留异常链路与重试次数，海水养殖管理缺权时口径管理入口直接拒绝');
+
+-- ===================== aqua-17 用药领用：休药期上下文隔离与撤回重提版本链 =====================
+-- 领用单版本链：首次建单 rev_no=1，撤回后重提 rev_no 递增；origin_req_no 保留首次编号，
+-- req_no 在原编号后追加 -R{版本}；重提时间单独落库，与撤回时间/审核时间可辨。
+ALTER TABLE t_med_requisition ADD COLUMN IF NOT EXISTS rev_no INT NOT NULL DEFAULT 1;
+ALTER TABLE t_med_requisition ADD COLUMN IF NOT EXISTS origin_req_no VARCHAR(64);
+ALTER TABLE t_med_requisition ADD COLUMN IF NOT EXISTS resubmit_of_id BIGINT;
+ALTER TABLE t_med_requisition ADD COLUMN IF NOT EXISTS resubmit_time TIMESTAMP;
+
+-- 明细批次关联版本：随领用单版本链递增，建单/重提时冻结当时批号，
+-- 保证"同一数据撤回再重提"时每次批次关联版本与批号快照都可辨。
+ALTER TABLE t_med_requisition_item ADD COLUMN IF NOT EXISTS link_version INT NOT NULL DEFAULT 1;
+ALTER TABLE t_med_requisition_item ADD COLUMN IF NOT EXISTS batch_no_snapshot VARCHAR(64);
+
+-- 池塘级休药锁定互斥：每池一行长期存在的互斥键，提交/撤回/驳回/重提时 MERGE 建键并
+-- SELECT ... FOR UPDATE 持锁至事务提交，按池串行化休药锁定重算，跨池互不阻塞、同池互不覆盖。
+CREATE TABLE IF NOT EXISTS t_med_pond_mutex (
+    pond_id BIGINT NOT NULL,
+    CONSTRAINT pk_med_pond_mutex PRIMARY KEY (pond_id)
+);
+
+MERGE INTO t_evops_schema_version (version_no, description)
+KEY (version_no)
+VALUES ('aqua-17', '用药领用休药期上下文隔离：休药结束日只取明细建单冻结快照并按池塘互斥串行重算、批号扣减条件更新防跨池并发超卖、多药叠加取最晚、历史审核结果不静默重算，撤回后可重提且领用编号/批次关联版本/时间逐版可辨');

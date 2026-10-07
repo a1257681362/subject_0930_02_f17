@@ -23,6 +23,7 @@ public class MedChangeEvidence extends BaseEntity {
     public static final String ACTION_REQ_APPROVE_FAILED = "REQ_APPROVE_FAILED";
     public static final String ACTION_REQ_REJECT = "REQ_REJECT";
     public static final String ACTION_REQ_WITHDRAW = "REQ_WITHDRAW";
+    public static final String ACTION_REQ_RESUBMIT = "REQ_RESUBMIT";
     public static final String ACTION_STOCK_DEDUCT = "STOCK_DEDUCT";
     public static final String ACTION_LOCK_UPDATE = "LOCK_UPDATE";
     public static final String ACTION_LOCK_RELEASE = "LOCK_RELEASE";

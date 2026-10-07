@@ -34,6 +34,14 @@ public class MedRequisition extends BaseEntity {
     private LocalDateTime approvedTime;
     private String withdrawBy;
     private LocalDateTime withdrawTime;
+    /** 版本号：首次建单为 1；撤回后每重提一次 +1。 */
+    private Integer revNo;
+    /** 版本链首张领用单编号：首单为自身编号，重提单指向首单。 */
+    private String originReqNo;
+    /** 重提单的上一版领用单 id；首单为空。 */
+    private Long resubmitOfId;
+    /** 重提时间：与撤回时间/审核时间分开落库，逐版可辨。 */
+    private LocalDateTime resubmitTime;
     private String requestId;
     private String remark;
 
@@ -63,6 +71,14 @@ public class MedRequisition extends BaseEntity {
     public void setWithdrawBy(String withdrawBy) { this.withdrawBy = withdrawBy; }
     public LocalDateTime getWithdrawTime() { return withdrawTime; }
     public void setWithdrawTime(LocalDateTime withdrawTime) { this.withdrawTime = withdrawTime; }
+    public Integer getRevNo() { return revNo; }
+    public void setRevNo(Integer revNo) { this.revNo = revNo; }
+    public String getOriginReqNo() { return originReqNo; }
+    public void setOriginReqNo(String originReqNo) { this.originReqNo = originReqNo; }
+    public Long getResubmitOfId() { return resubmitOfId; }
+    public void setResubmitOfId(Long resubmitOfId) { this.resubmitOfId = resubmitOfId; }
+    public LocalDateTime getResubmitTime() { return resubmitTime; }
+    public void setResubmitTime(LocalDateTime resubmitTime) { this.resubmitTime = resubmitTime; }
     public String getRequestId() { return requestId; }
     public void setRequestId(String requestId) { this.requestId = requestId; }
     public String getRemark() { return remark; }
